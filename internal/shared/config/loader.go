@@ -1,0 +1,66 @@
+package config
+
+import (
+	"bufio"
+	"fmt"
+	"os"
+	"reflect"
+	"strings"
+)
+
+// loadEnvFile загружает переменные из .env файла
+func loadEnvFile(filename string) error {
+	file, err := os.Open(filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+
+		// Пропускаем пустые строки и комментарии
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		// Парсим KEY=VALUE
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+
+		key := strings.TrimSpace(parts[0])
+		value := strings.TrimSpace(parts[1])
+
+		// Убираем кавычки если есть
+		value = strings.Trim(value, `"'`)
+
+		// Устанавливаем переменную окружения (если еще не установлена)
+		if os.Getenv(key) == "" {
+			os.Setenv(key, value)
+		}
+	}
+
+	return scanner.Err()
+}
+
+// loadFromEnv загружает конфигурацию из переменных окружения используя рефлексию
+func loadFromEnv(cfg interface{}) error {
+	v := reflect.ValueOf(cfg)
+
+	// Проверяем что это указатель
+	if v.Kind() != reflect.Ptr {
+		return fmt.Errorf("config must be a pointer")
+	}
+
+	v = v.Elem()
+
+	// Проверяем что это структура
+	if v.Kind() != reflect.Struct {
+		return fmt.Errorf("config must be a struct")
+	}
+
+	return processStruct(v)
+}
