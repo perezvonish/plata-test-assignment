@@ -3,6 +3,7 @@ package rest
 import (
 	"net/http"
 	"perezvonish/plata-test-assignment/internal/adapters/incoming/rest/modules/health"
+	"perezvonish/plata-test-assignment/internal/adapters/incoming/rest/modules/quotes"
 )
 
 type Module interface {
@@ -15,10 +16,12 @@ type Container struct {
 
 func newContainer() *Container {
 	healthModule := health.NewModule()
+	quoteModule := quotes.NewModule()
 
 	return &Container{
 		modules: []Module{
 			healthModule,
+			quoteModule,
 		},
 	}
 }
