@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"perezvonish/plata-test-assignment/internal/adapters/incoming/job_worker"
 	"perezvonish/plata-test-assignment/internal/adapters/incoming/rest"
 	"perezvonish/plata-test-assignment/internal/shared/config"
 	"syscall"
@@ -18,14 +19,29 @@ func main() {
 		panic(err)
 	}
 
+	//jobChannel := make(chan uuid.UUID, 100)
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	jobWorkers := job_worker.NewModule(job_worker.ModuleInitParams{
+		Config: cfg,
+		Logger: os.Stdout,
+	})
+
+	if err := jobWorkers.Start(); err != nil {
+		panic(err)
+	}
 
 	httpServer := rest.NewServer(ctx, *cfg)
 
 	go httpServer.Start()
 
 	<-ctx.Done()
+	shutdown(httpServer)
+}
+
+func shutdown(httpServer *rest.Server) {
 	fmt.Println("\nShutdown signal received...")
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)

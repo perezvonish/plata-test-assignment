@@ -3,12 +3,17 @@ package config
 type Config struct {
 	Server            ServerConfig
 	Postgres          PostgresConfig
+	JobWorker         JobWorkerConfig
 	ExchangeApiConfig ExchangeApiConfig
 }
 
 type ServerConfig struct {
 	Host string `env:"SERVER_HOST" envDefault:"localhost"`
 	Port int64  `env:"SERVER_PORT" envDefault:"8080"`
+}
+
+type JobWorkerConfig struct {
+	WorkerCount int64 `env:"JOB_WORKER_COUNT" envDefault:"1"`
 }
 
 type PostgresConfig struct {
