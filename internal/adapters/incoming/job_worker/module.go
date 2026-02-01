@@ -30,4 +30,6 @@ func (m *Module) Start() error {
 	if err != nil {
 		return err
 	}
+
+	return nil
 }

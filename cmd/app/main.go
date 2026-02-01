@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"perezvonish/plata-test-assignment/internal/adapters/incoming/job_worker"
 	"perezvonish/plata-test-assignment/internal/adapters/incoming/rest"
+	"perezvonish/plata-test-assignment/internal/infrastructure/database"
 	"perezvonish/plata-test-assignment/internal/shared/config"
 	"syscall"
 	"time"
@@ -24,6 +25,13 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	_, err = database.ConnectWithRetry(database.ConnectInitParams{
+		Config: cfg,
+	})
+	if err != nil {
+		panic(err)
+	}
+
 	jobWorkers := job_worker.NewModule(job_worker.ModuleInitParams{
 		Config: cfg,
 		Logger: os.Stdout,
@@ -38,10 +46,10 @@ func main() {
 	go httpServer.Start()
 
 	<-ctx.Done()
-	shutdown(httpServer)
+	gracefulShutdown(httpServer)
 }
 
-func shutdown(httpServer *rest.Server) {
+func gracefulShutdown(httpServer *rest.Server) {
 	fmt.Println("\nShutdown signal received...")
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)

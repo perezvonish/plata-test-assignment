@@ -17,11 +17,12 @@ type JobWorkerConfig struct {
 }
 
 type PostgresConfig struct {
-	Host         string `env:"POSTGRES_HOST" envDefault:"localhost"`
-	Port         int64  `env:"POSTGRES_PORT" envDefault:"5432"`
-	Username     string `env:"POSTGRES_USERNAME" envDefault:"postgres"`
-	Password     string `env:"POSTGRES_PASSWORD" envDefault:"postgres"`
-	DatabaseName string `env:"POSTGRES_DATABASE_NAME" envDefault:"postgres"`
+	Host              string `env:"POSTGRES_HOST" envDefault:"localhost"`
+	Port              int    `env:"POSTGRES_PORT" envDefault:"5432"`
+	Username          string `env:"POSTGRES_USERNAME" envDefault:"postgres"`
+	Password          string `env:"POSTGRES_PASSWORD" envDefault:"postgres"`
+	DatabaseName      string `env:"POSTGRES_DATABASE_NAME" envDefault:"postgres"`
+	ConnectRetryCount int    `env:"POSTGRES_DATABASE_CONNECT_RETRY_COUNT" envDefault:"10"`
 }
 
 type ExchangeApiConfig struct {
