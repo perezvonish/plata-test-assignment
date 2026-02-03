@@ -12,7 +12,7 @@ type Job struct {
 	QuoteId uuid.UUID
 	Status  Status
 
-	RetryCount int64
+	RetryCount int
 
 	IdempotencyKey string
 

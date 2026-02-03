@@ -13,7 +13,7 @@ type ServerConfig struct {
 }
 
 type JobWorkerConfig struct {
-	WorkerCount int64 `env:"JOB_WORKER_COUNT" envDefault:"1"`
+	WorkerCount int `env:"JOB_WORKER_COUNT" envDefault:"1"`
 }
 
 type PostgresConfig struct {

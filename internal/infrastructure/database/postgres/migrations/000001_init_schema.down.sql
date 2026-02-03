@@ -1,2 +1,2 @@
-DROP TABLE IF EXISTS update_tasks;
+DROP TABLE IF EXISTS update_jobs;
 DROP TABLE IF EXISTS quotes;

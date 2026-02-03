@@ -1,62 +1,69 @@
 package job_worker
 
 import (
+	"context"
 	"fmt"
 	"io"
-	"perezvonish/plata-test-assignment/internal/shared/utils"
+	"perezvonish/plata-test-assignment/internal/application/quote/usecases"
+	"sync"
 
 	"github.com/google/uuid"
 )
 
 type WorkerPool struct {
-	workerCount int64
+	workerCount int
 	workers     []Worker
 
 	logger io.Writer
+	wg     sync.WaitGroup
 
-	consumeChannel chan<- uuid.UUID
+	consumeChannel <-chan uuid.UUID
 }
 
 type PoolInitParams struct {
-	WorkerCount     int64
-	ConsumerChannel chan<- uuid.UUID
+	WorkerCount int
+
+	ConsumerChannel <-chan uuid.UUID
 	Logger          io.Writer
+
+	ProcessQuoteUpdateUsecase usecases.ProcessQuoteUpdateJobUsecase
 }
 
 func NewWorkerPool(params PoolInitParams) *WorkerPool {
-	return &WorkerPool{
-		workerCount:    params.WorkerCount,
-		consumeChannel: params.ConsumerChannel,
-		logger:         params.Logger,
-	}
-}
-
-func (wp *WorkerPool) Start() error {
 	var workers []Worker
 
-	for i := int64(0); i < wp.workerCount; i++ {
-		name := utils.GenerateUUID()
-		workers = append(workers, NewJobWorker(WorkerInitParams{
-			Name:       name,
-			JobChannel: wp.consumeChannel,
-			Logger:     wp.logger,
-		}))
+	wg := sync.WaitGroup{}
+
+	for i := 0; i < params.WorkerCount; i++ {
+		w := NewJobWorker(WorkerInitParams{
+			Name:                      fmt.Sprintf("worker-%d", i),
+			JobChannel:                params.ConsumerChannel,
+			Logger:                    params.Logger,
+			Wg:                        &wg,
+			ProcessQuoteUpdateUsecase: params.ProcessQuoteUpdateUsecase,
+		})
+		workers = append(workers, w)
 	}
 
-	wp.workers = workers
-
-	for _, worker := range wp.workers {
-		err := worker.Start()
-		if err != nil {
-			return err
-		}
+	return &WorkerPool{
+		workerCount:    params.WorkerCount,
+		workers:        workers,
+		wg:             wg,
+		logger:         params.Logger,
+		consumeChannel: params.ConsumerChannel,
 	}
-
-	wp.logger.Write([]byte(fmt.Sprintf("\n=============WORKER POOL STARTED =============\n")))
-
-	return nil
 }
 
-func (wp *WorkerPool) Stop() error {
-	return nil
+func (wp *WorkerPool) Start(ctx context.Context) {
+	wp.logger.Write([]byte(fmt.Sprintf("\n============= STARTING WORKER POOL (count: %d) =============\n", wp.workerCount)))
+
+	for _, w := range wp.workers {
+		w.Start(ctx)
+	}
+}
+
+func (wp *WorkerPool) Stop() {
+	wp.logger.Write([]byte("\n============= STOPPING WORKER POOL =============\n"))
+	wp.wg.Wait()
+	wp.logger.Write([]byte("\n============= WORKER POOL STOPPED =============\n"))
 }

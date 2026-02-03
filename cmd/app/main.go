@@ -12,6 +12,8 @@ import (
 	"perezvonish/plata-test-assignment/internal/shared/config"
 	"syscall"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 func main() {
@@ -20,36 +22,33 @@ func main() {
 		panic(err)
 	}
 
-	//jobChannel := make(chan uuid.UUID, 100)
-
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	_, err = database.ConnectWithRetry(database.ConnectInitParams{
+	dbPool, err := database.ConnectWithRetry(database.ConnectInitParams{
 		Config: cfg,
 	})
 	if err != nil {
-		panic(err)
+		log.Fatalf("Database connection failed: %v", err)
 	}
+	defer dbPool.Close()
 
-	jobWorkers := job_worker.NewModule(job_worker.ModuleInitParams{
-		Config: cfg,
-		Logger: os.Stdout,
+	jobChan := make(chan uuid.UUID, 100)
+	workerModule := job_worker.NewModule(job_worker.ModuleInitParams{
+		Config:          cfg,
+		Logger:          os.Stdout,
+		ConsumerChannel: jobChan,
 	})
-
-	if err := jobWorkers.Start(); err != nil {
-		panic(err)
-	}
+	workerModule.StartWorkers(ctx)
 
 	httpServer := rest.NewServer(ctx, *cfg)
-
 	go httpServer.Start()
 
 	<-ctx.Done()
-	gracefulShutdown(httpServer)
+	gracefulShutdown(httpServer, workerModule)
 }
 
-func gracefulShutdown(httpServer *rest.Server) {
+func gracefulShutdown(httpServer *rest.Server, workerModule *job_worker.Module) {
 	fmt.Println("\nShutdown signal received...")
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -58,6 +57,8 @@ func gracefulShutdown(httpServer *rest.Server) {
 	if err := httpServer.Stop(shutdownCtx); err != nil {
 		log.Fatalf("Server forced to shutdown: %v", err)
 	}
+
+	workerModule.StopWorkers()
 
 	fmt.Println("Application stopped gracefully")
 }

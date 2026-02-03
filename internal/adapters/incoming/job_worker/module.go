@@ -1,8 +1,13 @@
 package job_worker
 
 import (
+	"context"
 	"io"
+	"perezvonish/plata-test-assignment/internal/application/quote/usecases"
 	"perezvonish/plata-test-assignment/internal/shared/config"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Module struct {
@@ -10,14 +15,24 @@ type Module struct {
 }
 
 type ModuleInitParams struct {
+	pool   *pgxpool.Pool
 	Config *config.Config
-	Logger io.Writer
+
+	Logger          io.Writer
+	ConsumerChannel <-chan uuid.UUID
 }
 
 func NewModule(params ModuleInitParams) *Module {
+	processQuoteUpdateUsecase := usecases.NewProcessQuoteUpdateUsecase(usecases.ProcessQuoteUpdateUsecaseInitParams{
+		Pool:   params.pool,
+		Config: &params.Config.ExchangeApiConfig,
+	})
+
 	pool := NewWorkerPool(PoolInitParams{
-		WorkerCount: params.Config.JobWorker.WorkerCount,
-		Logger:      params.Logger,
+		WorkerCount:               params.Config.JobWorker.WorkerCount,
+		Logger:                    params.Logger,
+		ConsumerChannel:           params.ConsumerChannel,
+		ProcessQuoteUpdateUsecase: processQuoteUpdateUsecase,
 	})
 
 	return &Module{
@@ -25,11 +40,10 @@ func NewModule(params ModuleInitParams) *Module {
 	}
 }
 
-func (m *Module) Start() error {
-	err := m.pool.Start()
-	if err != nil {
-		return err
-	}
+func (m *Module) StartWorkers(ctx context.Context) {
+	m.pool.Start(ctx)
+}
 
-	return nil
+func (m *Module) StopWorkers() {
+	m.pool.Stop()
 }
