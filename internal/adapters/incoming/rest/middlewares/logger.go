@@ -21,11 +21,8 @@ func useLogger(next http.Handler) http.Handler {
 
 		duration := time.Since(start)
 
-		timestamp := start.Format("02/01/2006 15:04:05.000")
-
-		log.Printf("%s | %s | %s %s | %d | %v\n",
+		log.Printf("%s | %s %s | %d | %v\n",
 			requestID,
-			timestamp,
 			r.Method,
 			r.URL.Path,
 			wrapped.statusCode,
