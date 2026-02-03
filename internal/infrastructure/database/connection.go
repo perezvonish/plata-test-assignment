@@ -73,10 +73,13 @@ func Migrate(params ConnectInitParams) error {
 
 	migrationsDir := filepath.Join(wd, "internal", "infrastructure", "database", "postgres", "migrations")
 
+	if _, err := os.Stat(migrationsDir); os.IsNotExist(err) {
+		return fmt.Errorf("migrations directory not found at: %s", migrationsDir)
+	}
+
 	migrationPath := fmt.Sprintf("file://%s", filepath.ToSlash(migrationsDir))
 
 	dsn := params.GetDSN()
-
 	return RunMigrations(dsn, migrationPath)
 }
 
