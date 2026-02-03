@@ -14,8 +14,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	_ "perezvonish/plata-test-assignment/docs"
 )
 
+// @title           Quote PriceRate Exchange API
+// @description     Сервис для отслеживания и обновления котировок.
 func main() {
 	cfg, err := config.Init()
 	if err != nil {

@@ -14,6 +14,11 @@ func NewHandler() Handler {
 	return Handler{pingUsecase: healthApplication.NewHealthPingUsecase()}
 }
 
+// Ping
+// @Summary      Получение статуса сервера
+// @Tags         Health
+// @Success      200  {object}  healthApplication.HealthPingResult
+// @Router       /v1/health/ping [get]
 func (h *Handler) Ping(w http.ResponseWriter, r *http.Request) {
 	result, err := h.pingUsecase.Execute(r.Context())
 	if err != nil {

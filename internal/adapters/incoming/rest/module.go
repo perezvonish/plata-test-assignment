@@ -2,6 +2,7 @@ package rest
 
 import (
 	"net/http"
+	swaggerDocs "perezvonish/plata-test-assignment/internal/adapters/incoming/rest/modules/docs"
 	"perezvonish/plata-test-assignment/internal/adapters/incoming/rest/modules/health"
 	"perezvonish/plata-test-assignment/internal/adapters/incoming/rest/modules/quotes"
 )
@@ -15,11 +16,13 @@ type Container struct {
 }
 
 func newContainer() *Container {
+	docs := swaggerDocs.NewModule()
 	healthModule := health.NewModule()
 	quoteModule := quotes.NewModule()
 
 	return &Container{
 		modules: []Module{
+			docs,
 			healthModule,
 			quoteModule,
 		},
