@@ -11,8 +11,14 @@ type UpdateStatusParams struct {
 	Status Status
 }
 
+type CreateParams struct {
+	QuoteID        uuid.UUID `json:"quote_id"`
+	IdempotencyKey string    `json:"idempotency_key"`
+}
+
 type Repository interface {
 	GetById(ctx context.Context, id uuid.UUID) (*Job, error)
 	GetByIdempotencyKey(ctx context.Context, key string) (*Job, error)
 	UpdateStatus(ctx context.Context, params UpdateStatusParams) error
+	Save(ctx context.Context, params CreateParams) (uuid.UUID, error)
 }

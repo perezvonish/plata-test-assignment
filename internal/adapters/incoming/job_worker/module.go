@@ -15,7 +15,7 @@ type Module struct {
 }
 
 type ModuleInitParams struct {
-	pool   *pgxpool.Pool
+	Pool   *pgxpool.Pool
 	Config *config.Config
 
 	Logger          io.Writer
@@ -24,7 +24,7 @@ type ModuleInitParams struct {
 
 func NewModule(params ModuleInitParams) *Module {
 	processQuoteUpdateUsecase := usecases.NewProcessQuoteUpdateUsecase(usecases.ProcessQuoteUpdateUsecaseInitParams{
-		Pool:   params.pool,
+		Pool:   params.Pool,
 		Config: &params.Config.ExchangeApiConfig,
 	})
 

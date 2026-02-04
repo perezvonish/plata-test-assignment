@@ -49,6 +49,8 @@ func (p *ProcessQuoteUpdateJobUsecaseImpl) Execute(ctx context.Context, params P
 		return err
 	}
 
+	//rate := float64(12345.123123123)
+
 	rate, err := p.exchangePriceService.GetRate(ctx, services.GetRateParams{
 		FromCurrency: dbQuote.FromCurrency,
 		ToCurrency:   dbQuote.ToCurrency,

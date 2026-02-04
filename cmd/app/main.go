@@ -39,13 +39,19 @@ func main() {
 
 	jobChan := make(chan uuid.UUID, 100)
 	workerModule := job_worker.NewModule(job_worker.ModuleInitParams{
+		Pool:            dbPool,
 		Config:          cfg,
 		Logger:          os.Stdout,
 		ConsumerChannel: jobChan,
 	})
 	workerModule.StartWorkers(ctx)
 
-	httpServer := rest.NewServer(ctx, *cfg)
+	httpServer := rest.NewServer(rest.ServerInitParams{
+		Ctx:        ctx,
+		Config:     cfg,
+		Pool:       dbPool,
+		JobChannel: jobChan,
+	})
 	go httpServer.Start()
 
 	<-ctx.Done()

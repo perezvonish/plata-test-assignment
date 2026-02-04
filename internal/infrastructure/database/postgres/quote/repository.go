@@ -3,6 +3,7 @@ package quote
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"perezvonish/plata-test-assignment/internal/domain/quote"
@@ -72,22 +73,38 @@ func (r *RepositoryImpl) UpdatePrice(ctx context.Context, params quote.UpdatePri
 	return err
 }
 
-func (r *RepositoryImpl) Save(ctx context.Context, q *quote.Quote) error {
-	m := MapToModel(q)
+func (r *RepositoryImpl) Save(ctx context.Context, params quote.SaveParams) (*quote.Quote, error) {
+	id := uuid.New()
+	now := time.Now().UTC()
 
 	query := `
-       INSERT INTO quotes (id, from_currency, to_currency, price_e8_rate, updated_at)
-       VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT (from_currency, to_currency) DO UPDATE SET
+       INSERT INTO quotes (id, from_currency, to_currency, price_e8_rate, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (from_currency, to_currency) DO UPDATE SET 
           price_e8_rate = EXCLUDED.price_e8_rate,
-          updated_at = EXCLUDED.updated_at`
+          updated_at = EXCLUDED.updated_at
+       RETURNING id, from_currency, to_currency, price_e8_rate, created_at, updated_at`
 
-	_, err := r.pool.Exec(ctx, query,
-		m.Id,
-		m.FromCurrency,
-		m.ToCurrency,
-		m.PriceE8Rate,
-		m.UpdatedAt,
+	var q quote.Quote
+	err := r.pool.QueryRow(ctx, query,
+		id,
+		params.FromCurrency,
+		params.ToCurrency,
+		0, // Начальный курс
+		now,
+		now,
+	).Scan(
+		&q.Id,
+		&q.FromCurrency,
+		&q.ToCurrency,
+		&q.PriceE8Rate,
+		&q.CreatedAt,
+		&q.UpdatedAt,
 	)
-	return err
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to save and scan quote: %w", err)
+	}
+
+	return &q, nil
 }
