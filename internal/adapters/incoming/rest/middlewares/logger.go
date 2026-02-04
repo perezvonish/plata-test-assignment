@@ -3,14 +3,15 @@ package middlewares
 import (
 	"log"
 	"net/http"
-	"perezvonish/plata-test-assignment/internal/shared/utils"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 func useLogger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		requestID := utils.GenerateUUID()
+		requestID := uuid.New()
 
 		wrapped := &responseWriter{
 			ResponseWriter: w,
