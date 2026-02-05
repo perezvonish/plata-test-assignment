@@ -63,6 +63,7 @@ func (e *ExchangePriceImpl) GetRate(ctx context.Context, params GetRateParams) (
 	apiUrl.RawQuery = query.Encode()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiUrl.String(), nil)
+
 	if err != nil {
 		return 0, fmt.Errorf("failed to create request: %w", err)
 	}

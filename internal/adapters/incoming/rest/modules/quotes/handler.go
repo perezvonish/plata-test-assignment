@@ -4,13 +4,8 @@ import (
 	"errors"
 	"net/http"
 	"perezvonish/plata-test-assignment/internal/adapters/incoming/rest/response"
-	quoteErrors "perezvonish/plata-test-assignment/internal/application/quote"
+	applicationQuote "perezvonish/plata-test-assignment/internal/application/quote"
 	"perezvonish/plata-test-assignment/internal/application/quote/usecases"
-	"perezvonish/plata-test-assignment/internal/infrastructure/database/postgres/job"
-	"perezvonish/plata-test-assignment/internal/infrastructure/database/postgres/quote"
-
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Handler struct {
@@ -22,34 +17,19 @@ type Handler struct {
 }
 
 type HandlerInitParams struct {
-	Pool *pgxpool.Pool
-
-	JobChannel chan<- uuid.UUID
+	UpdateUsecase        usecases.QuoteUpdateUsecase
+	GetByUpdateIdUsecase usecases.QuoteGetByUpdateIdUsecase
+	GetLatestUsecase     usecases.QuoteGetLatestUsecase
 }
 
 func newHandler(params HandlerInitParams) *Handler {
-	paramsValidator := newParamsValidator()
-
-	jobRepository := job.NewRepository(params.Pool)
-	quoteRepository := quote.NewRepository(params.Pool)
-
-	updateUsecase := usecases.NewQuoteUpdateUsecase(usecases.QuoteUpdateUsecaseInitParams{
-		JobRepository:   jobRepository,
-		JobChannel:      params.JobChannel,
-		QuoteRepository: quoteRepository,
-	})
-	getByUpdateIdUsecase := usecases.NewQuoteGetByUpdateIdUsecase(usecases.QuoteGetByUpdateIdUsecaseInitParams{
-		Pool: params.Pool,
-	})
-	getLatestUsecase := usecases.NewQuoteGetLatestUsecase(usecases.QuoteGetLatestUsecaseInitParams{
-		Pool: params.Pool,
-	})
+	paramsValidator := NewParamsValidator()
 
 	return &Handler{
 		paramsValidator:      paramsValidator,
-		updateUsecase:        updateUsecase,
-		getByUpdateIdUsecase: getByUpdateIdUsecase,
-		getLatestUsecase:     getLatestUsecase,
+		updateUsecase:        params.UpdateUsecase,
+		getByUpdateIdUsecase: params.GetByUpdateIdUsecase,
+		getLatestUsecase:     params.GetLatestUsecase,
 	}
 }
 
@@ -138,7 +118,7 @@ func (h *Handler) GetByUpdateId(w http.ResponseWriter, r *http.Request) {
 		UpdateId: params.Id,
 	})
 	if err != nil {
-		if errors.Is(err, quoteErrors.ErrorWhileFindingJob) || errors.Is(err, quoteErrors.ErrorNotFoundJob) {
+		if errors.Is(err, applicationQuote.ErrorWhileFindingJob) || errors.Is(err, applicationQuote.ErrorNotFoundJob) {
 			response.SendResponse(w, response.SendResponseParams[any]{
 				Status: http.StatusBadRequest,
 				Error:  err,
@@ -196,7 +176,7 @@ func (h *Handler) GetLatest(w http.ResponseWriter, r *http.Request) {
 		To:   params.To,
 	})
 	if err != nil {
-		if errors.Is(err, quoteErrors.ErrorWhileFindingJob) || errors.Is(err, quoteErrors.ErrorNotFoundJob) {
+		if errors.Is(err, applicationQuote.ErrorWhileFindingJob) || errors.Is(err, applicationQuote.ErrorNotFoundJob) {
 			response.SendResponse(w, response.SendResponseParams[any]{
 				Status: http.StatusBadRequest,
 				Error:  err,

@@ -6,12 +6,8 @@ import (
 	"perezvonish/plata-test-assignment/internal/application/quote/services"
 	"perezvonish/plata-test-assignment/internal/domain/job"
 	"perezvonish/plata-test-assignment/internal/domain/quote"
-	infraJob "perezvonish/plata-test-assignment/internal/infrastructure/database/postgres/job"
-	infraQuote "perezvonish/plata-test-assignment/internal/infrastructure/database/postgres/quote"
-	"perezvonish/plata-test-assignment/internal/shared/config"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type ProcessQuoteUpdateJobUsecaseParams struct {
@@ -54,6 +50,7 @@ func (p *ProcessQuoteUpdateJobUsecaseImpl) Execute(ctx context.Context, params P
 		ToCurrency:   dbQuote.ToCurrency,
 	})
 	if err != nil {
+		fmt.Println()
 		currentJob.MarkAsFailure()
 		_ = p.jobRepository.UpdateStatus(ctx, job.UpdateStatusParams{
 			Id:     currentJob.Id,
@@ -99,20 +96,15 @@ func (p *ProcessQuoteUpdateJobUsecaseImpl) Execute(ctx context.Context, params P
 }
 
 type ProcessQuoteUpdateUsecaseInitParams struct {
-	Pool   *pgxpool.Pool
-	Config *config.ExchangeApiConfig
+	JobRepository   job.Repository
+	QuoteRepository quote.Repository
+	ExchangeService services.ExchangePrice
 }
 
 func NewProcessQuoteUpdateUsecase(params ProcessQuoteUpdateUsecaseInitParams) ProcessQuoteUpdateJobUsecase {
-	jobRepository := infraJob.NewRepository(params.Pool)
-	quoteRepository := infraQuote.NewRepository(params.Pool)
-	exchangeService := services.NewExchangePrice(services.ExchangePriceInitParams{
-		ExchangeApiConfig: params.Config,
-	})
-
 	return &ProcessQuoteUpdateJobUsecaseImpl{
-		jobRepository:        jobRepository,
-		quoteRepository:      quoteRepository,
-		exchangePriceService: exchangeService,
+		jobRepository:        params.JobRepository,
+		quoteRepository:      params.QuoteRepository,
+		exchangePriceService: params.ExchangeService,
 	}
 }

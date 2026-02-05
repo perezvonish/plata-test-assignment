@@ -5,11 +5,9 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"perezvonish/plata-test-assignment/internal/app"
 	"perezvonish/plata-test-assignment/internal/shared/config"
 	"time"
-
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Server struct {
@@ -22,17 +20,13 @@ type ServerInitParams struct {
 	Ctx    context.Context
 	Config *config.Config
 
-	Pool       *pgxpool.Pool
-	JobChannel chan<- uuid.UUID
+	AppContainer *app.Container
 }
 
 func NewServer(params ServerInitParams) *Server {
 	formattedPort := fmt.Sprintf(":%d", params.Config.Server.Port)
 
-	router := newRouter(RouterInitParams{
-		Pool:       params.Pool,
-		JobChannel: params.JobChannel,
-	})
+	router := newRouter(params.AppContainer)
 
 	httpServer := &http.Server{
 		Addr:         formattedPort,

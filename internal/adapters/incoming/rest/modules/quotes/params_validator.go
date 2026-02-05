@@ -88,6 +88,6 @@ func (v ParamsValidatorImpl) ValidateGetLatest(ctx context.Context, r *http.Requ
 	}, nil
 }
 
-func newParamsValidator() ParamsValidator {
+func NewParamsValidator() ParamsValidator {
 	return ParamsValidatorImpl{}
 }

@@ -6,9 +6,6 @@ import (
 	"perezvonish/plata-test-assignment/internal/adapters/incoming/rest/response"
 	"perezvonish/plata-test-assignment/internal/domain/currency"
 	"perezvonish/plata-test-assignment/internal/domain/job"
-	infraJob "perezvonish/plata-test-assignment/internal/infrastructure/database/postgres/job"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type QuoteGetLatestUsecaseParams struct {
@@ -59,13 +56,11 @@ func (q QuoteGetLatestUsecaseImpl) Execute(ctx context.Context, params QuoteGetL
 }
 
 type QuoteGetLatestUsecaseInitParams struct {
-	Pool *pgxpool.Pool
+	JobRepository job.Repository
 }
 
 func NewQuoteGetLatestUsecase(params QuoteGetLatestUsecaseInitParams) QuoteGetLatestUsecase {
-	jobRepository := infraJob.NewRepository(params.Pool)
-
 	return QuoteGetLatestUsecaseImpl{
-		jobRepository: jobRepository,
+		jobRepository: params.JobRepository,
 	}
 }

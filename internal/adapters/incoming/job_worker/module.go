@@ -3,11 +3,8 @@ package job_worker
 import (
 	"context"
 	"io"
-	"perezvonish/plata-test-assignment/internal/application/quote/usecases"
+	"perezvonish/plata-test-assignment/internal/app"
 	"perezvonish/plata-test-assignment/internal/shared/config"
-
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Module struct {
@@ -15,24 +12,18 @@ type Module struct {
 }
 
 type ModuleInitParams struct {
-	Pool   *pgxpool.Pool
 	Config *config.Config
 
-	Logger          io.Writer
-	ConsumerChannel <-chan uuid.UUID
+	Logger       io.Writer
+	AppContainer *app.Container
 }
 
 func NewModule(params ModuleInitParams) *Module {
-	processQuoteUpdateUsecase := usecases.NewProcessQuoteUpdateUsecase(usecases.ProcessQuoteUpdateUsecaseInitParams{
-		Pool:   params.Pool,
-		Config: &params.Config.ExchangeApiConfig,
-	})
-
 	pool := NewWorkerPool(PoolInitParams{
 		WorkerCount:               params.Config.JobWorker.WorkerCount,
 		Logger:                    params.Logger,
-		ConsumerChannel:           params.ConsumerChannel,
-		ProcessQuoteUpdateUsecase: processQuoteUpdateUsecase,
+		ConsumerChannel:           params.AppContainer.Job.UpdateChannel,
+		ProcessQuoteUpdateUsecase: params.AppContainer.ExternalExchange.ProcessQuoteUpdateJobUsecase,
 	})
 
 	return &Module{

@@ -2,26 +2,15 @@ package quotes
 
 import (
 	"net/http"
-
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"perezvonish/plata-test-assignment/internal/app"
 )
 
 type Module struct {
 	controller *Controller
 }
 
-type ModuleInitParams struct {
-	Pool *pgxpool.Pool
-
-	JobChannel chan<- uuid.UUID
-}
-
-func NewModule(params ModuleInitParams) *Module {
-	controller := newController(ControllerInitParams{
-		Pool:       params.Pool,
-		JobChannel: params.JobChannel,
-	})
+func NewModule(app *app.Container) *Module {
+	controller := newController(app)
 
 	return &Module{
 		controller: controller,

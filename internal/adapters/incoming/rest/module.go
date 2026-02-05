@@ -5,9 +5,7 @@ import (
 	swaggerDocs "perezvonish/plata-test-assignment/internal/adapters/incoming/rest/modules/docs"
 	"perezvonish/plata-test-assignment/internal/adapters/incoming/rest/modules/health"
 	"perezvonish/plata-test-assignment/internal/adapters/incoming/rest/modules/quotes"
-
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"perezvonish/plata-test-assignment/internal/app"
 )
 
 type Module interface {
@@ -18,19 +16,10 @@ type Container struct {
 	modules []Module
 }
 
-type ContainerInitParams struct {
-	pool *pgxpool.Pool
-
-	JobChannel chan<- uuid.UUID
-}
-
-func newContainer(params ContainerInitParams) *Container {
+func newContainer(app *app.Container) *Container {
 	docs := swaggerDocs.NewModule()
 	healthModule := health.NewModule()
-	quoteModule := quotes.NewModule(quotes.ModuleInitParams{
-		Pool:       params.pool,
-		JobChannel: params.JobChannel,
-	})
+	quoteModule := quotes.NewModule(app)
 
 	return &Container{
 		modules: []Module{

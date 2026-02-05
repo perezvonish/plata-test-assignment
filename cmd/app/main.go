@@ -8,12 +8,11 @@ import (
 	"os/signal"
 	"perezvonish/plata-test-assignment/internal/adapters/incoming/job_worker"
 	"perezvonish/plata-test-assignment/internal/adapters/incoming/rest"
+	"perezvonish/plata-test-assignment/internal/app"
 	"perezvonish/plata-test-assignment/internal/infrastructure/database"
 	"perezvonish/plata-test-assignment/internal/shared/config"
 	"syscall"
 	"time"
-
-	"github.com/google/uuid"
 
 	_ "perezvonish/plata-test-assignment/docs"
 )
@@ -37,20 +36,22 @@ func main() {
 	}
 	defer dbPool.Close()
 
-	jobChan := make(chan uuid.UUID, 100)
+	container := app.NewContainer(app.ContainerInitParams{
+		Config: cfg,
+		Pool:   dbPool,
+	})
+
 	workerModule := job_worker.NewModule(job_worker.ModuleInitParams{
-		Pool:            dbPool,
-		Config:          cfg,
-		Logger:          os.Stdout,
-		ConsumerChannel: jobChan,
+		Config:       cfg,
+		Logger:       os.Stdout,
+		AppContainer: container,
 	})
 	workerModule.StartWorkers(ctx)
 
 	httpServer := rest.NewServer(rest.ServerInitParams{
-		Ctx:        ctx,
-		Config:     cfg,
-		Pool:       dbPool,
-		JobChannel: jobChan,
+		Ctx:          ctx,
+		Config:       cfg,
+		AppContainer: container,
 	})
 	go httpServer.Start()
 

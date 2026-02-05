@@ -5,10 +5,8 @@ import (
 	"perezvonish/plata-test-assignment/internal/adapters/incoming/rest/response"
 	"perezvonish/plata-test-assignment/internal/application/quote"
 	"perezvonish/plata-test-assignment/internal/domain/job"
-	infraJob "perezvonish/plata-test-assignment/internal/infrastructure/database/postgres/job"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type QuoteGetByUpdateIdUsecaseInput struct {
@@ -54,13 +52,11 @@ func (q *QuoteGetByUpdateIdUsecaseImpl) Execute(ctx context.Context, input Quote
 }
 
 type QuoteGetByUpdateIdUsecaseInitParams struct {
-	Pool *pgxpool.Pool
+	JobRepository job.Repository
 }
 
 func NewQuoteGetByUpdateIdUsecase(params QuoteGetByUpdateIdUsecaseInitParams) QuoteGetByUpdateIdUsecase {
-	jobRepository := infraJob.NewRepository(params.Pool)
-
 	return &QuoteGetByUpdateIdUsecaseImpl{
-		jobRepository: jobRepository,
+		jobRepository: params.JobRepository,
 	}
 }
