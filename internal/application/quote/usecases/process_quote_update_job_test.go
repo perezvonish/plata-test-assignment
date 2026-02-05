@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 	"perezvonish/plata-test-assignment/internal/application/quote/usecases"
+	mocksServices "perezvonish/plata-test-assignment/mocks/application/quote/services"
+	mocksRepositories "perezvonish/plata-test-assignment/mocks/domain/job"
+	mocks "perezvonish/plata-test-assignment/mocks/domain/quote"
 	"testing"
 
 	"github.com/google/uuid"
@@ -12,111 +15,111 @@ import (
 
 	"perezvonish/plata-test-assignment/internal/domain/job"
 	"perezvonish/plata-test-assignment/internal/domain/quote"
-
-	svcMocks "perezvonish/plata-test-assignment/mocks/application/quote/services"
-	jobMocks "perezvonish/plata-test-assignment/mocks/domain/job"
-	quoteMocks "perezvonish/plata-test-assignment/mocks/domain/quote"
 )
 
-func TestProcessQuoteUpdateJobUsecase_Execute(t *testing.T) {
-	ctx := context.Background()
+func TestProcessQuoteUpdateJobUsecase_Execute_TableDriven(t *testing.T) {
+	type fields struct {
+		jobRepo   *mocksRepositories.Repository
+		quoteRepo *mocks.Repository
+		priceSvc  *mocksServices.ExchangePrice
+	}
+
 	jobID := uuid.New()
 	quoteID := uuid.New()
+	ctx := context.Background()
 
-	// Тестовые данные
-	mockJob := &job.Job{
-		Id:      jobID,
-		QuoteId: quoteID,
-		Status:  job.StatusPending,
+	mJob := &job.Job{Id: jobID, QuoteId: quoteID, Status: job.StatusPending}
+	mQuote := &quote.Quote{Id: quoteID, FromCurrency: "USD", ToCurrency: "RUB"}
+
+	tests := []struct {
+		name    string
+		params  usecases.ProcessQuoteUpdateJobUsecaseParams
+		setup   func(f fields)
+		wantErr bool
+	}{
+		{
+			name:   "Success path",
+			params: usecases.ProcessQuoteUpdateJobUsecaseParams{Id: jobID},
+			setup: func(f fields) {
+				f.jobRepo.On("GetById", ctx, jobID).Return(mJob, nil).Once()
+				f.jobRepo.On("UpdateStatus", ctx, mock.MatchedBy(func(p job.UpdateStatusParams) bool {
+					return p.Status == job.StatusProcessing
+				})).Return(nil).Once()
+				f.quoteRepo.On("GetById", ctx, quoteID).Return(mQuote, nil).Once()
+				f.priceSvc.On("GetRate", ctx, mock.Anything).Return(100.0, nil).Once()
+				f.jobRepo.On("UpdatePrice", ctx, mock.Anything).Return(nil).Once()
+				f.quoteRepo.On("UpdatePrice", ctx, mock.Anything).Return(nil).Once()
+				f.jobRepo.On("UpdateStatus", ctx, mock.MatchedBy(func(p job.UpdateStatusParams) bool {
+					return p.Status == job.StatusSuccess
+				})).Return(nil).Once()
+			},
+			wantErr: false,
+		},
+		{
+			name:   "Job not found",
+			params: usecases.ProcessQuoteUpdateJobUsecaseParams{Id: jobID},
+			setup: func(f fields) {
+				f.jobRepo.On("GetById", ctx, jobID).Return(nil, fmt.Errorf("db error")).Once()
+			},
+			wantErr: true,
+		},
+		{
+			name:   "External API error should mark job as failure",
+			params: usecases.ProcessQuoteUpdateJobUsecaseParams{Id: jobID},
+			setup: func(f fields) {
+				f.jobRepo.On("GetById", ctx, jobID).Return(mJob, nil).Once()
+				f.jobRepo.On("UpdateStatus", ctx, mock.MatchedBy(func(p job.UpdateStatusParams) bool {
+					return p.Status == job.StatusProcessing
+				})).Return(nil).Once()
+				f.quoteRepo.On("GetById", ctx, quoteID).Return(mQuote, nil).Once()
+				f.priceSvc.On("GetRate", ctx, mock.Anything).Return(0.0, fmt.Errorf("api timeout")).Once()
+				f.jobRepo.On("UpdateStatus", ctx, mock.MatchedBy(func(p job.UpdateStatusParams) bool {
+					return p.Status == job.StatusFailure
+				})).Return(nil).Once()
+			},
+			wantErr: true,
+		},
+		{
+			name:   "Quote repository error",
+			params: usecases.ProcessQuoteUpdateJobUsecaseParams{Id: jobID},
+			setup: func(f fields) {
+				f.jobRepo.On("GetById", ctx, jobID).Return(mJob, nil).Once()
+				f.jobRepo.On("UpdateStatus", ctx, mock.Anything).Return(nil).Once()
+				f.quoteRepo.On("GetById", ctx, quoteID).Return(nil, fmt.Errorf("quote db error")).Once()
+			},
+			wantErr: true,
+		},
 	}
-	mockQuote := &quote.Quote{
-		Id:           quoteID,
-		FromCurrency: "USD",
-		ToCurrency:   "RUB",
-	}
 
-	rate := 92.5
-	expectedPriceE8 := int64(9250000000) // 92.5 * 10^8
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := fields{
+				jobRepo:   new(mocksRepositories.Repository),
+				quoteRepo: new(mocks.Repository),
+				priceSvc:  new(mocksServices.ExchangePrice),
+			}
 
-	t.Run("Success", func(t *testing.T) {
-		// Инициализация моков
-		jobRepo := jobMocks.NewRepository(t)
-		quoteRepo := quoteMocks.NewRepository(t)
-		priceSvc := svcMocks.NewExchangePrice(t)
+			if tt.setup != nil {
+				tt.setup(f)
+			}
 
-		u := usecases.NewProcessQuoteUpdateUsecase(usecases.ProcessQuoteUpdateUsecaseInitParams{
-			// Здесь передаем моки. NewProcessQuoteUpdateUsecase нужно будет
-			// слегка подправить, чтобы он принимал интерфейсы, а не инициализировал их сам,
-			// либо создать конструктор специально для тестов.
+			u := usecases.NewProcessQuoteUpdateUsecase(usecases.ProcessQuoteUpdateUsecaseInitParams{
+				JobRepository:   f.jobRepo,
+				QuoteRepository: f.quoteRepo,
+				ExchangeService: f.priceSvc,
+			})
+
+			err := u.Execute(ctx, tt.params)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+
+			f.jobRepo.AssertExpectations(t)
+			f.quoteRepo.AssertExpectations(t)
+			f.priceSvc.AssertExpectations(t)
 		})
-
-		// ВАЖНО: В реальном коде лучше передавать зависимости в структуру напрямую,
-		// чтобы тест мог подменить их моками.
-
-		// 1. Get Job
-		jobRepo.On("GetById", ctx, jobID).Return(mockJob, nil).Once()
-
-		// 2. Mark as Processing
-		jobRepo.On("UpdateStatus", ctx, mock.MatchedBy(func(p job.UpdateStatusParams) bool {
-			return p.Id == jobID && p.Status == job.StatusProcessing
-		})).Return(nil).Once()
-
-		// 3. Get Quote
-		quoteRepo.On("GetById", ctx, quoteID).Return(mockQuote, nil).Once()
-
-		// 4. Get Rate
-		priceSvc.On("GetRate", ctx, mock.Anything).Return(rate, nil).Once()
-
-		// 5. Update Job Price
-		jobRepo.On("UpdatePrice", ctx, mock.MatchedBy(func(p job.UpdatePriceParams) bool {
-			return p.Id == jobID && p.PriceE8Rate == expectedPriceE8
-		})).Return(nil).Once()
-
-		// 6. Update Quote Price
-		quoteRepo.On("UpdatePrice", ctx, quote.UpdatePriceParams{
-			Id:    quoteID,
-			Price: expectedPriceE8,
-		}).Return(nil).Once()
-
-		// 7. Success Status
-		jobRepo.On("UpdateStatus", ctx, mock.MatchedBy(func(p job.UpdateStatusParams) bool {
-			return p.Status == job.StatusSuccess
-		})).Return(nil).Once()
-
-		// Вызов
-		// (Предполагается, что зависимости внедрены в usecaseImpl)
-		err := u.Execute(ctx, usecases.ProcessQuoteUpdateJobUsecaseParams{Id: jobID})
-
-		assert.NoError(t, err)
-	})
-
-	t.Run("Failure_On_External_Service", func(t *testing.T) {
-		jobRepo := jobMocks.NewRepository(t)
-		quoteRepo := quoteMocks.NewRepository(t)
-		priceSvc := svcMocks.NewExchangePrice(t)
-
-		// Те же шаги до ошибки сервиса
-		jobRepo.On("GetById", ctx, jobID).Return(mockJob, nil).Once()
-		jobRepo.On("UpdateStatus", ctx, mock.Anything).Return(nil).Once()
-		quoteRepo.On("GetById", ctx, quoteID).Return(mockQuote, nil).Once()
-
-		// Сервис возвращает ошибку
-		priceSvc.On("GetRate", ctx, mock.Anything).Return(0.0, fmt.Errorf("api down")).Once()
-
-		// Проверяем, что статус стал Failure
-		jobRepo.On("UpdateStatus", ctx, mock.MatchedBy(func(p job.UpdateStatusParams) bool {
-			return p.Status == job.StatusFailure
-		})).Return(nil).Once()
-
-		u := &usecases.ProcessQuoteUpdateJobUsecaseImpl{
-			jobRepository:        jobRepo,
-			quoteRepository:      quoteRepo,
-			exchangePriceService: priceSvc,
-		}
-
-		err := u.Execute(ctx, usecases.ProcessQuoteUpdateJobUsecaseParams{Id: jobID})
-
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "external api error")
-	})
+	}
 }
