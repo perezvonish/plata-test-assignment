@@ -9,3 +9,16 @@ migrateDown:
 
 swag:
 	swag init -g cmd/app/main.go --parseDependency --parseInternal
+
+install-deps:
+	go install github.com/vektra/mockery/v2@latest
+	go install github.com/swaggo/swag/cmd/swag@latest
+
+
+mock:
+	@echo "Generating mocks using keeptree..."
+	mockery --all --recursive --keeptree --dir ./internal --output ./mocks
+	@echo "Mocks generated in ./mocks"
+
+mock-clean:
+	rm -rf ./mocks
