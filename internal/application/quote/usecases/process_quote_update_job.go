@@ -49,16 +49,12 @@ func (p *ProcessQuoteUpdateJobUsecaseImpl) Execute(ctx context.Context, params P
 		return err
 	}
 
-	//rate := float64(12345.123123123)
-
 	rate, err := p.exchangePriceService.GetRate(ctx, services.GetRateParams{
 		FromCurrency: dbQuote.FromCurrency,
 		ToCurrency:   dbQuote.ToCurrency,
 	})
-
 	if err != nil {
 		currentJob.MarkAsFailure()
-
 		_ = p.jobRepository.UpdateStatus(ctx, job.UpdateStatusParams{
 			Id:     currentJob.Id,
 			Status: currentJob.Status,
@@ -66,9 +62,25 @@ func (p *ProcessQuoteUpdateJobUsecaseImpl) Execute(ctx context.Context, params P
 		return fmt.Errorf("external api error: %w", err)
 	}
 
+	newPriceE8 := dbQuote.GetE8Price(rate)
+
+	currentJob.UpdatePrice(newPriceE8)
+	err = p.jobRepository.UpdatePrice(ctx, job.UpdatePriceParams{
+		Id:          currentJob.Id,
+		PriceE8Rate: currentJob.PriceE8Rate,
+	})
+	if err != nil {
+		currentJob.MarkAsFailure()
+		_ = p.jobRepository.UpdateStatus(ctx, job.UpdateStatusParams{
+			Id:     currentJob.Id,
+			Status: currentJob.Status,
+		})
+		return fmt.Errorf("failed to update price in job: %w", err)
+	}
+
 	err = p.quoteRepository.UpdatePrice(ctx, quote.UpdatePriceParams{
 		Id:    dbQuote.Id,
-		Price: dbQuote.GetE8Price(rate),
+		Price: newPriceE8,
 	})
 	if err != nil {
 		currentJob.MarkAsFailure()

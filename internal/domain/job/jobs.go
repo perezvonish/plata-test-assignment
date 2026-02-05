@@ -1,6 +1,7 @@
 package job
 
 import (
+	"perezvonish/plata-test-assignment/internal/domain/quote"
 	"time"
 
 	"github.com/google/uuid"
@@ -10,9 +11,12 @@ type Job struct {
 	Id uuid.UUID
 
 	QuoteId uuid.UUID
+	Quote   *quote.Quote
 	Status  Status
 
 	RetryCount int
+
+	PriceE8Rate int64
 
 	IdempotencyKey string
 
@@ -34,4 +38,13 @@ func (j *Job) MarkAsFailure() {
 	j.Status = StatusFailure
 	j.RetryCount++
 	j.UpdatedAt = time.Now()
+}
+
+func (j *Job) UpdatePrice(price int64) {
+	j.PriceE8Rate = price
+	j.UpdatedAt = time.Now()
+}
+
+func (j *Job) GetConvertedPrice(value int64) float64 {
+	return float64(value) / float64(quote.PricePrecision)
 }

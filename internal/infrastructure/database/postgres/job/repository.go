@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"perezvonish/plata-test-assignment/internal/infrastructure/database/postgres/quote"
 	"time"
 
 	"perezvonish/plata-test-assignment/internal/domain/job"
@@ -138,4 +139,59 @@ func (r *RepositoryImpl) UpdateStatus(ctx context.Context, params job.UpdateStat
 	}
 
 	return nil
+}
+
+func (r *RepositoryImpl) UpdatePrice(ctx context.Context, params job.UpdatePriceParams) error {
+	var pgID pgtype.UUID
+	if err := pgID.Scan(params.Id.String()); err != nil {
+		return fmt.Errorf("failed to scan uuid for update price: %w", err)
+	}
+
+	query := `
+       UPDATE update_jobs 
+       SET price_e8_rate = $1, 
+           updated_at = $2
+       WHERE id = $3::uuid`
+
+	result, err := r.pool.Exec(ctx, query,
+		params.PriceE8Rate,
+		time.Now().UTC(),
+		pgID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to execute update price query: %w", err)
+	}
+
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("job not found: %s", params.Id)
+	}
+
+	return nil
+}
+
+func (r *RepositoryImpl) GetByUpdateId(ctx context.Context, updateId uuid.UUID) (*job.Job, error) {
+	query := `
+       SELECT 
+           j.id, j.quote_id, j.status, j.retry_count, j.price_e8_rate, j.idempotency_key, j.created_at, j.updated_at,
+           q.id, q.from_currency, q.to_currency, q.price_e8_rate, q.created_at, q.updated_at
+       FROM update_jobs j
+       LEFT JOIN quotes q ON j.quote_id = q.id
+       WHERE j.id = $1::uuid`
+
+	var m Model
+	m.Quote = &quote.Model{}
+
+	err := r.pool.QueryRow(ctx, query, updateId).Scan(
+		&m.Id, &m.QuoteId, &m.Status, &m.RetryCount, &m.PriceE8Rate, &m.IdempotencyKey, &m.CreatedAt, &m.UpdatedAt,
+		&m.Quote.Id, &m.Quote.FromCurrency, &m.Quote.ToCurrency, &m.Quote.PriceE8Rate, &m.Quote.CreatedAt, &m.Quote.UpdatedAt,
+	)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return m.MapToDomain(), nil
 }

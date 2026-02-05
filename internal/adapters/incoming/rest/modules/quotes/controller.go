@@ -10,7 +10,7 @@ import (
 
 var (
 	updateRoute   = "PATCH /v1/quotes"
-	getByUpdateId = "GET /v1/quotes/{updateId}"
+	getByUpdateId = "GET /v1/quotes/update-task/{id}"
 	getLatest     = "GET /v1/quotes/latest"
 )
 

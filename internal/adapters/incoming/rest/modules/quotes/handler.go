@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"perezvonish/plata-test-assignment/internal/adapters/incoming/rest/response"
+	quoteErrors "perezvonish/plata-test-assignment/internal/application/quote"
 	"perezvonish/plata-test-assignment/internal/application/quote/usecases"
 	"perezvonish/plata-test-assignment/internal/infrastructure/database/postgres/job"
 	"perezvonish/plata-test-assignment/internal/infrastructure/database/postgres/quote"
@@ -37,10 +38,14 @@ func newHandler(params HandlerInitParams) *Handler {
 		JobChannel:      params.JobChannel,
 		QuoteRepository: quoteRepository,
 	})
+	getByUpdateIdUsecase := usecases.NewQuoteGetByUpdateIdUsecase(usecases.QuoteGetByUpdateIdUsecaseInitParams{
+		Pool: params.Pool,
+	})
 
 	return &Handler{
-		paramsValidator: paramsValidator,
-		updateUsecase:   updateUsecase,
+		paramsValidator:      paramsValidator,
+		updateUsecase:        updateUsecase,
+		getByUpdateIdUsecase: getByUpdateIdUsecase,
 	}
 }
 
@@ -95,6 +100,61 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (h *Handler) GetByUpdateId(w http.ResponseWriter, r *http.Request) {}
+// GetByUpdateId
+// @Summary      Получение котировки по идентификатору задачи на обновление
+// @Description  Принимает id задачи на обновлние
+// @Tags         quotes
+// @Accept       json
+// @Produce      json
+// @Param        id    query     string  true  "UUID исходной валюты" format(uuid)
+// @Success      200      {object}  response.SendResponseParams[UpdateOutput] ""
+// @Failure      400      {object}  response.SendResponseParams[any] "Ошибка валидации (не корректный идентификатор задачи, не передан id и т.д.)"
+// @Failure      404      {object}  response.SendResponseParams[any] "Задачи с таким идентификатором не существует"
+// @Failure      500      {object}  response.SendResponseParams[any] "Внутренняя ошибка сервера"
+// @Router       /v1/quotes/update-task/{id} [get]
+func (h *Handler) GetByUpdateId(w http.ResponseWriter, r *http.Request) {
+	params, err := h.paramsValidator.ValidateGetByUpdateId(r.Context(), r)
+	if err != nil {
+		if errors.Is(err, ErrorNotPassedJobId) || errors.Is(err, ErrorNotValidJobId) {
+			response.SendResponse(w, response.SendResponseParams[any]{
+				Status: http.StatusBadRequest,
+				Error:  err,
+			})
+			return
+		}
+
+		response.SendResponse(w, response.SendResponseParams[any]{
+			Status: http.StatusInternalServerError,
+			Error:  err,
+		})
+		return
+	}
+
+	result, err := h.getByUpdateIdUsecase.Execute(r.Context(), usecases.QuoteGetByUpdateIdUsecaseInput{
+		UpdateId: params.Id,
+	})
+	if err != nil {
+		if errors.Is(err, quoteErrors.ErrorWhileFindingJob) || errors.Is(err, quoteErrors.ErrorNotFoundJob) {
+			response.SendResponse(w, response.SendResponseParams[any]{
+				Status: http.StatusBadRequest,
+				Error:  err,
+			})
+			return
+		}
+
+		response.SendResponse(w, response.SendResponseParams[any]{
+			Status: http.StatusInternalServerError,
+			Error:  err,
+		})
+		return
+	}
+
+	response.SendResponse(w, response.SendResponseParams[GetByUpdateIdOutput]{
+		Status: http.StatusOK,
+		Data: GetByUpdateIdOutput{
+			Job: result,
+		},
+	})
+}
 
 func (h *Handler) GetLatest(w http.ResponseWriter, r *http.Request) {}
