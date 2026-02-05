@@ -12,7 +12,7 @@ import (
 type ParamsValidator interface {
 	ValidateUpdate(ctx context.Context, r *http.Request) (UpdateInput, error)
 	ValidateGetByUpdateId(ctx context.Context, r *http.Request) (GetByUpdateIdInput, error)
-	ValidateGetLatest(ctx context.Context, r *http.Request)
+	ValidateGetLatest(ctx context.Context, r *http.Request) (GetLatestInput, error)
 }
 
 type ParamsValidatorImpl struct{}
@@ -62,9 +62,30 @@ func (v ParamsValidatorImpl) ValidateGetByUpdateId(ctx context.Context, r *http.
 	}, nil
 }
 
-func (v ParamsValidatorImpl) ValidateGetLatest(ctx context.Context, r *http.Request) {
-	//TODO implement me
-	panic("implement me")
+func (v ParamsValidatorImpl) ValidateGetLatest(ctx context.Context, r *http.Request) (GetLatestInput, error) {
+	query := r.URL.Query()
+	fromRaw := query.Get("from")
+	toRaw := query.Get("to")
+
+	if fromRaw == "" || toRaw == "" {
+		return GetLatestInput{}, ErrorFromAndToAreRequired
+	}
+
+	from := currency.Currency(fromRaw)
+	to := currency.Currency(toRaw)
+
+	if !currency.IsValid(from) || !currency.IsValid(to) {
+		return GetLatestInput{}, ErrorInvalidCurrency
+	}
+
+	if from == to {
+		return GetLatestInput{}, ErrorIdenticalCurrency
+	}
+
+	return GetLatestInput{
+		From: from,
+		To:   to,
+	}, nil
 }
 
 func newParamsValidator() ParamsValidator {

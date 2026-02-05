@@ -24,6 +24,14 @@ type GetByUpdateIdOutput struct {
 	Job response.Job `json:"job"`
 }
 
+type GetLatestInput struct {
+	From currency.Currency `json:"from"`
+	To   currency.Currency `json:"to"`
+}
+type GetLatestOutput struct {
+	Job response.Job `json:"job"`
+}
+
 var (
 	ErrorFromAndToAreRequired = errors.New("parameters 'from' and 'to' are required")
 	ErrorInvalidCurrency      = errors.New("invalid currency code provided")

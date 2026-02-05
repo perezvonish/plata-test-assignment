@@ -21,6 +21,11 @@ type UpdatePriceParams struct {
 	PriceE8Rate int64
 }
 
+type GetLatestByCurrencyPairParams struct {
+	From string
+	To   string
+}
+
 type Repository interface {
 	GetById(ctx context.Context, id uuid.UUID) (*Job, error)
 	GetByUpdateId(ctx context.Context, updateId uuid.UUID) (*Job, error)
@@ -28,4 +33,5 @@ type Repository interface {
 	UpdateStatus(ctx context.Context, params UpdateStatusParams) error
 	UpdatePrice(ctx context.Context, params UpdatePriceParams) error
 	Save(ctx context.Context, params CreateParams) (uuid.UUID, error)
+	GetLatestByCurrencyPair(ctx context.Context, params GetLatestByCurrencyPairParams) (*Job, error)
 }

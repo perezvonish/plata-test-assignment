@@ -41,11 +41,15 @@ func newHandler(params HandlerInitParams) *Handler {
 	getByUpdateIdUsecase := usecases.NewQuoteGetByUpdateIdUsecase(usecases.QuoteGetByUpdateIdUsecaseInitParams{
 		Pool: params.Pool,
 	})
+	getLatestUsecase := usecases.NewQuoteGetLatestUsecase(usecases.QuoteGetLatestUsecaseInitParams{
+		Pool: params.Pool,
+	})
 
 	return &Handler{
 		paramsValidator:      paramsValidator,
 		updateUsecase:        updateUsecase,
 		getByUpdateIdUsecase: getByUpdateIdUsecase,
+		getLatestUsecase:     getLatestUsecase,
 	}
 }
 
@@ -107,7 +111,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 // @Accept       json
 // @Produce      json
 // @Param        id    query     string  true  "UUID исходной валюты" format(uuid)
-// @Success      200      {object}  response.SendResponseParams[UpdateOutput] ""
+// @Success      200      {object}  response.SendResponseParams[GetByUpdateIdOutput] ""
 // @Failure      400      {object}  response.SendResponseParams[any] "Ошибка валидации (не корректный идентификатор задачи, не передан id и т.д.)"
 // @Failure      404      {object}  response.SendResponseParams[any] "Задачи с таким идентификатором не существует"
 // @Failure      500      {object}  response.SendResponseParams[any] "Внутренняя ошибка сервера"
@@ -157,4 +161,60 @@ func (h *Handler) GetByUpdateId(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (h *Handler) GetLatest(w http.ResponseWriter, r *http.Request) {}
+// GetLatest
+// @Summary      Получение последнего обновления котировки
+// @Tags         quotes
+// @Accept       json
+// @Produce      json
+// @Param        from    query     string  true  "UUID исходной валюты" format(string)
+// @Param        to      query     string  true  "UUID целевой валюты"  format(string)
+// @Success      200      {object}  response.SendResponseParams[UpdateOutput] "Получено последнее обновление котировки"
+// @Failure      400      {object}  response.SendResponseParams[any] "Ошибка валидации (одинаковые валюты, неверный формат и т.д.)"
+// @Failure      404      {object}  response.SendResponseParams[any] "Котировка еще ни разу не обновлялась"
+// @Failure      500      {object}  response.SendResponseParams[any] "Внутренняя ошибка сервера"
+// @Router       /v1/quotes/latest [get]
+func (h *Handler) GetLatest(w http.ResponseWriter, r *http.Request) {
+	params, err := h.paramsValidator.ValidateGetLatest(r.Context(), r)
+	if err != nil {
+		if errors.Is(err, ErrorFromAndToAreRequired) || errors.Is(err, ErrorInvalidCurrency) || errors.Is(err, ErrorIdenticalCurrency) {
+			response.SendResponse(w, response.SendResponseParams[any]{
+				Status: http.StatusBadRequest,
+				Error:  err,
+			})
+			return
+		}
+
+		response.SendResponse(w, response.SendResponseParams[any]{
+			Status: http.StatusInternalServerError,
+			Error:  err,
+		})
+		return
+	}
+
+	result, err := h.getLatestUsecase.Execute(r.Context(), usecases.QuoteGetLatestUsecaseParams{
+		From: params.From,
+		To:   params.To,
+	})
+	if err != nil {
+		if errors.Is(err, quoteErrors.ErrorWhileFindingJob) || errors.Is(err, quoteErrors.ErrorNotFoundJob) {
+			response.SendResponse(w, response.SendResponseParams[any]{
+				Status: http.StatusBadRequest,
+				Error:  err,
+			})
+			return
+		}
+
+		response.SendResponse(w, response.SendResponseParams[any]{
+			Status: http.StatusInternalServerError,
+			Error:  err,
+		})
+		return
+	}
+
+	response.SendResponse(w, response.SendResponseParams[GetLatestOutput]{
+		Status: http.StatusOK,
+		Data: GetLatestOutput{
+			Job: result,
+		},
+	})
+}

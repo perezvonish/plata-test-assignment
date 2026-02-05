@@ -195,3 +195,32 @@ func (r *RepositoryImpl) GetByUpdateId(ctx context.Context, updateId uuid.UUID) 
 
 	return m.MapToDomain(), nil
 }
+
+func (r *RepositoryImpl) GetLatestByCurrencyPair(ctx context.Context, params job.GetLatestByCurrencyPairParams) (*job.Job, error) {
+	query := `
+       SELECT 
+           j.id, j.quote_id, j.status, j.retry_count, j.price_e8_rate, j.idempotency_key, j.created_at, j.updated_at,
+           q.id, q.from_currency, q.to_currency, q.price_e8_rate, q.created_at, q.updated_at
+       FROM update_jobs j
+       INNER JOIN quotes q ON j.quote_id = q.id
+       WHERE q.from_currency = $1 AND q.to_currency = $2
+       ORDER BY j.created_at DESC
+       LIMIT 1`
+
+	var m Model
+	m.Quote = &quote.Model{}
+
+	err := r.pool.QueryRow(ctx, query, params.From, params.To).Scan(
+		&m.Id, &m.QuoteId, &m.Status, &m.RetryCount, &m.PriceE8Rate, &m.IdempotencyKey, &m.CreatedAt, &m.UpdatedAt,
+		&m.Quote.Id, &m.Quote.FromCurrency, &m.Quote.ToCurrency, &m.Quote.PriceE8Rate, &m.Quote.CreatedAt, &m.Quote.UpdatedAt,
+	)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return m.MapToDomain(), nil
+}
